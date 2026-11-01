@@ -1,0 +1,130 @@
+/* PuTTY Tray Main stylesheet
+------------------------------------------------------------------*/
+
+/* Global
+------------------------------------------------------------------*/
+html, body, form, h1, h2, h3, h4, h5, h6, pre, blockquote, ul, ol, dl {
+	margin: 0px;
+	padding: 0px;
+	}
+
+html {
+	overflow-x: hidden;
+	overflow: -moz-scrollbars-vertical;
+	}
+
+body {
+	text-align: center;
+	color: #000000;
+	background-color: #FFFFFF;
+	font: 13px/15px "Tahoma", sans-serif;
+	padding: 0px 0px 30px 0px;
+	}
+
+#wrap {
+	text-align: left;
+	margin: 0px auto;
+	padding: 0px;
+	width: 760px;	
+	}
+
+h1 span, h2 span, h3 span {
+	display: none;
+	}
+
+ul, li {
+	list-style-type: none;
+	}
+
+hr {
+	margin: 0px;
+	padding: 0px;
+	border: 0px;
+	height: 0px;
+	visibility: hidden;
+	}
+
+a:link    { color: #b4250f; text-decoration: none; outline: none; }
+a:visited { color: #b4250f; text-decoration: none; outline: none; }
+a:hover   { color: #EE3D23; text-decoration: underline; outline: none; }
+a:active  { color: #EE3D23; text-decoration: underline; outline: none; }
+
+/* Head
+------------------------------------------------------------------*/
+#head {
+	display: block;
+	position: relative;
+	margin-top: 30px;
+	width: 760px;
+	height: 215px;
+	background: #FFFFFF url(../../g/head.jpg) no-repeat;
+	}
+	
+#head h1 {
+	display: none;
+	}
+
+/* Content
+------------------------------------------------------------------*/
+#content {
+	margin: 0px;
+	padding: 20px 40px 40px 40px;
+	background: url(../../g/intro_bg.gif) no-repeat 0 100%;
+	}
+
+.quote {
+	display: block;
+	margin: 10px 5px 10px 15px;
+	padding: 3px 0px 3px 25px;
+	background: url(../../g/quote.png) no-repeat 3px 3px;
+	font-family: "Tahoma", sans-serif;
+	font-size: 0.9em;
+	color: #555555;
+	}
+
+h2 {
+	margin: 2px 0px 15px 0px;
+	font-size: 135%;
+	font-weight: bold;
+	color: #EE3D23;
+	}
+
+h2 a:hover {
+	text-decoration: none;
+	}
+
+#content li {
+	padding: 0px 0px 0px 25px;
+	margin: 5px 0px 5px 0px;
+	background: url(../../g/bullet.gif) no-repeat 2px 0px;
+	line-height: 125%;
+	}
+
+#content li.update {
+	padding: 0px 0px 0px 25px;
+	margin: 5px 0px 5px 0px;
+	background: url(../../g/bullet_update.gif) no-repeat 2px 0px;
+	line-height: 125%;
+	}
+
+
+/* Info
+------------------------------------------------------------------*/
+#info {
+	display: block;
+	width: 100%;
+	height: 25px;
+	border-bottom: 1px solid #888888;
+	background-color: #ffffb8;
+	color: #333333;
+	cursor: pointer;
+	text-decoration: none;
+	}
+
+#info span {
+	height: 25px;
+	line-height: 25px;
+	padding: 2px 0px 2px 27px;
+	background: url(../../g/bullet_update.gif) no-repeat 0px 0px;
+	font: 11px/25px verdana, tahoma, arial, helvetica, sans-serif;
+	}

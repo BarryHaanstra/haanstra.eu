@@ -1,0 +1,105 @@
+/* Minimal reset */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+h1 {
+  margin: 0;
+  padding: 0;
+}
+
+h1 {
+  font: inherit;
+}
+
+/* Page */
+html,
+body {
+  overflow: hidden;
+  height: 100%;
+}
+
+body {
+  background: #4a4a4a;
+  line-height: 1;
+  /* No bounce, no scroll */
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+/*
+ * Running under the browser bars on iOS Safari (26+):
+ * Safari only draws page content under its status bar and toolbar when the
+ * document actually has content there, i.e. when it is scrolled. So the
+ * page is made taller than the screen by --overscan at the top and bottom,
+ * and main.js scrolls down by --overscan. User scrolling stays disabled.
+ */
+:root {
+  --overscan: 100px;
+}
+
+#content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  width: 100%;
+  height: calc(100vh + 2 * var(--overscan));
+  height: calc(100lvh + 2 * var(--overscan));
+}
+
+#background {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+#mainLogo {
+  z-index: 100;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 50vmin;
+  height: 50vmin;
+  transform: translate(-50%, -50%);
+}
+
+#mainLogo svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Vertical site title, top right */
+#sidebar {
+  z-index: 200;
+  position: absolute;
+  /* Top of the visible area (see --overscan); right inset clears the notch in landscape */
+  top: calc(var(--overscan) + 5px);
+  right: calc(10px + env(safe-area-inset-right));
+}
+
+/* Rotated around its top-left corner, so it hangs left of #sidebar's anchor */
+#sidebar h1 {
+  position: absolute;
+  top: 10px;
+  transform-origin: 0 0;
+  transform: rotate(90deg);
+  white-space: nowrap;
+  font-family: "Myriad Pro", Helvetica, Arial, sans-serif;
+  font-size: 30px;
+  text-transform: lowercase;
+  color: #fff;
+}
+
+/* Smaller title on phones */
+@media (max-width: 840px) {
+  #sidebar h1 {
+    font-size: 20px;
+  }
+}

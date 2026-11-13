@@ -1,254 +1,163 @@
-var transitionDurationProperty = "";
-var transformProperty = "";
-
 /*
- * Start a new scene when the document is ready
+ * Background animation: 12 large translucent logos drifting slowly.
+ *
+ * Everything is drawn on one viewport-sized <canvas> with requestAnimationFrame.
+ * The old version animated 12 DOM/SVG layers that were each up to 5x the window
+ * size, which forced the browser to rasterize and composite huge layers.
  */
-$(document).ready(function() {
-	// Start the main scene
-	var scene = new Scene();
-	scene.init();
+(function () {
+	'use strict';
 
-	// Set resize handler
-	$(window).resize(function() {
-		scene.reinit();
-	});
-	$(window).bind('orientationchange', function() {
-		scene.reinit();
-	});
+	var MOVE_MS = 20000;  // duration of one glide
+	var REST_MS = 3000;   // pause between glides
+	var MAX_DPR = 2;      // no need to render a faint background at 3x
+	var FILL = 'rgba(0, 0, 0, 0.2)';
 
-	// Disable bounce in iOS Safari
-	document.ontouchmove = function(event) {
-		event.preventDefault();
+	// Logo outline, copied from logo.svg (viewBox 0 0 500 450)
+	var LOGO_PATH = new Path2D('m 0,0 c -66.666667,0 -133.33333,0 -200,0 33.33333,33.333333 66.66667,66.666667 100,100 C -66.666667,66.666667 -33.333333,33.333333 0,0 z m 141.4214,-424.2657 c -66.666667,0 -133.3333333,0 -200,0 33.333333,33.33333 66.6666667,66.66667 100,100 33.333333,-33.33333 66.66667,-66.66667 100,-100 z m 282.8418,277.3623 c -47.14067,-47.14067 -94.28133,-94.28133 -141.422,-141.422 0,47.14067 0,94.28133 0,141.422 47.14067,0 94.28133,0 141.422,0 z m -141.421,-0.002 c 47.14033,47.141 94.28067,94.282 141.421,141.423 0,-47.140333 0,-94.280667 0,-141.421 -47.14033,-6.7e-4 -94.28067,-0.001 -141.421,-0.002 z m 141.421,141.4229 c -94.28067,-94.280333 -188.56133,-188.56067 -282.842,-282.841 0,94.28033 0,188.560667 0,282.841 94.28067,0 188.56133,0 282.842,0 z M 141.4214,-424.2647 c -94.281,94.28067 -188.562,188.56133 -282.843,282.842 94.280667,0 188.561333,0 282.842,0 3.3e-4,-94.28067 6.7e-4,-188.56133 0.001,-282.842 z M 282.8413,-5.4815 c 47.14067,47.140667 94.28133,94.281333 141.422,141.422 0,-47.140667 0,-94.281333 0,-141.422 -47.14067,0 -94.28133,0 -141.422,0 z m -424.2632,-135.9414 c 0,47.140667 0,94.281333 0,141.422 47.140667,3.3333333e-4 94.281333,6.6666667e-4 141.422,0.001 0,-47.141 0,-94.282 0,-141.423 -47.140667,0 -94.281333,0 -141.422,0 z');
+
+	// Combined transform from logo.svg, centered on the viewBox (250, 225)
+	var LOGO_MATRIX = new DOMMatrix([1.25, 0, 0, -1.25, -250, 225])
+		.multiply(new DOMMatrix([0.64075527, 0, 0, 0.64262052, 128.15105, 272.64184]));
+
+	// Size ranges per "layer", as a factor of the largest window side
+	var SIZE_RANGES = [[0.8, 1.2], [1.5, 3], [4, 5]];
+
+	var canvas, ctx, width, height, dpr;
+	var logos = [];
+	var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+	function rand(from, to) {
+		return from + Math.random() * (to - from);
 	}
-});
 
+	// Smooth start and stop, close to the CSS "ease" curve the old version used
+	function ease(t) {
+		return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+	}
 
-/*
- * Defines the main scene on the screen
- */
-function Scene() {
-	this.animationTimer = null;
-	this.screenRects = [];
-	this.logoObjects = [];
+	// Each logo stays within one quarter of the screen, for an even spread.
+	// Positions are stored relative (0..1) so a resize just rescales them.
+	function randomPointInQuadrant(q) {
+		var qx = q % 2, qy = Math.floor(q / 2);
+		return { x: (qx + Math.random()) / 2, y: (qy + Math.random()) / 2 };
+	}
 
-	/*
-	 * Init method
-	 * Initialize the page layout
-	 */
-	this.init = function() {
-		// Create and position background logos
-		this.createLogoObjects();
-		this.layoutLogoObjects();
-
-		// Overlay the main logo
-		this.showMainLogoObject();
-
-		// Start animating the background logos
-		this.animateLogoObjects();
-	};
-
-
-	/*
-	 * ReInit method
-	 * Reconfigure after page layout change
-	 */
-	this.reinit = function() {
-		this.createRects();
-		this.showMainLogoObject();
-	};
-
-
-	/*
-	 * createRects method
-	 * Split the screen into parts where logos should appear
-	 * This makes distribution more uniform
-	 */
-	this.createRects = function() {
-		this.screenRects = [];
-
-		var windowWidth = $(window).width();
-		var windowHeight = $(window).height();
-		var numberOfPartsX = 2;
-		var numberOfPartsY = 2;
-
-		var partWidth = Math.round(windowWidth / numberOfPartsX);
-		var partHeight = Math.round(windowHeight / numberOfPartsY);
-
-		for (var j=0; j < numberOfPartsY; j++) {
-			for (var i=0; i < numberOfPartsX; i++) {
-				var part = new Rect(i * partWidth, j * partHeight, partWidth, partHeight);
-				this.screenRects.push(part);
+	function createLogos(now) {
+		logos = [];
+		SIZE_RANGES.forEach(function (range) {
+			for (var q = 0; q < 4; q++) {
+				var p = randomPointInQuadrant(q);
+				logos.push({
+					quadrant: q,
+					size: rand(range[0], range[1]), // relative to max(width, height)
+					from: p,
+					to: randomPointInQuadrant(q),
+					t: 0,
+					start: now + rand(0, REST_MS)
+				});
 			}
-		}
-	}
-
-
-	/*
-	 * createLogoObjects method
-	 * Create the logo objects, but do not position, size & paint them
-	 */
-	this.createLogoObjects = function() {
-		this.logoObjects = [];
-
-		for (var i=0; i < 3; i++) {
-			for (var j=0; j < 4; j++) {
-				var logoObject = new Logo(0, 0, 0, 0);
-				this.logoObjects.push(logoObject);
-			}
-		}
-	}
-
-
-	/*
-	 * layoutLogoObjects method
-	 * Position, size & paint the logo objects
-	 */
-	this.layoutLogoObjects = function() {
-		this.createRects();
-
-		// Logo min/max dimensions
-		var windowSize = Math.max($(window).width(), $(window).height());
-		var minValues = [windowSize * 0.8, windowSize * 1.5, windowSize * 4];
-		var maxValues = [windowSize * 1.2, windowSize * 3, windowSize * 5];
-
-		// Content box resize
-		$('#body').css({
-			'width' : $(window).width() + 'px',
-			'height' : $(window).height() + 'px',
-			'overflow': 'hidden'
-		});
-
-		// Layout logo objects
-		var counter = 0;
-		for (var i=0; i < 3; i++) {
-			for (var j=0; j < 4; j++) {
-				var screenRect = this.screenRects[j];
-				var size = this.randomNumber(minValues[i], maxValues[i]);
-				var x = this.randomNumber(screenRect.x, screenRect.x2);
-				var y = this.randomNumber(screenRect.y, screenRect.y2);
-				var logoObject = this.logoObjects[counter];
-				logoObject.paint(x, y, size, size);
-
-				counter++;
-			}
-		}
-	}
-
-
-	this.animateLogoObjects = function() {
-		var duration = 20000;
-
-		// Move logo objects
-		var counter = 0;
-		for (var i=0; i < 3; i++) {
-			for (var j=0; j < 4; j++) {
-				var screenRect = this.screenRects[j];
-				var logoObject = this.logoObjects[counter];
-
-				var x = this.randomNumber(screenRect.x, screenRect.x2);
-				var y = this.randomNumber(screenRect.y, screenRect.y2);
-				logoObject.animateTo(x, y, (duration / 1000));
-
-				counter++;
-			}
-		}
-
-		window.clearTimeout(this.animationTimer);
-		this.animationTimer = window.setTimeout($.proxy(this.animateLogoObjects, this), (duration + 3000));
-	}
-
-
-	/*
-	 * randomNumber method
-	 * Utility method for generating numbers between a low and a high number
-	 */
-	this.randomNumber = function(from, to) {
-		return Math.floor(Math.random() * (to - from + 1) + from);
-	}
-
-
-	/*
-	 * createMainLogoObject method
-	 * Creates the centered main logo
-	 */
-	this.showMainLogoObject = function() {
-   		var windowSize = Math.min($(window).width(), $(window).height());
-   		var logoSize = Math.round(windowSize / 2);
-   		var logoX = Math.round(($(window).width() / 2) - (logoSize / 2));
-   		var logoY = Math.round(($(window).height() / 2) - (logoSize / 2))
-
-   		var divElement = $('#mainLogo');
-   		if (!divElement[0]) {
-			 	divElement = $('<div>', {
-				'id' : 'mainLogo'
-			}).load('logomain.svg').appendTo('#content');
-   		}
-
-		 divElement.css({
-			'position' : 'absolute',
-			'left' : logoX + 'px',
-			'top' : logoY + 'px',
-			'width' : logoSize + 'px',
-			'height' : logoSize + 'px',
-			'z-index' : 100
-		});
-	}
-};
-
-
-/*
- * Logo object
- */
-function Logo() {
-	var divElement = null;
-	var currentCenterX = 0;
-	var currentCenterY = 0;
-
-	// Display functions
-	this.paint = function(centerX, centerY, width, height) {
-		currentCenterX = centerX;
-		currentCenterY = centerY;
-
-		var x = centerX - Math.round(width / 2);
-		var y = centerY - Math.round(height / 2);
-
-		if (divElement == null) {
-			divElement = $('<div>', {
-				'class' : 'logo'
-			}).load('logo.svg').appendTo('#content');
-		}
-
-		divElement.css({
-			'position' : 'absolute',
-			'left' : x + 'px',
-			'top' : y + 'px',
-			'width' : width + 'px',
-			'height' : height + 'px'
 		});
 	}
 
+	function resize() {
+		dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+		// Use the canvas's CSS size: on iOS that is the large viewport (under
+		// the browser bars), while innerHeight stops short of them
+		width = canvas.clientWidth;
+		height = canvas.clientHeight;
+		canvas.width = Math.round(width * dpr);
+		canvas.height = Math.round(height * dpr);
+	}
 
-	this.animateTo = function(newX, newY, duration) {
-		var moveX =  newX - currentCenterX;
-		var moveY = newY - currentCenterY;
+	// Advance the logos; returns true if any of them moved since the last frame
+	function update(now) {
+		var moving = false;
 
-		divElement.css({
-			"transform" : "translate3d(" + moveX + "px" + ", " + moveY + "px" + ", 0)",
-			"transition-duration" : duration + "s"
+		for (var i = 0; i < logos.length; i++) {
+			var logo = logos[i];
+			var elapsed = now - logo.start;
+
+			// Glide finished and rest is over: pick a new destination
+			if (elapsed >= MOVE_MS + REST_MS) {
+				logo.from = logo.to;
+				logo.to = randomPointInQuadrant(logo.quadrant);
+				logo.start = now;
+				elapsed = 0;
+			}
+
+			var t = ease(Math.min(Math.max(elapsed / MOVE_MS, 0), 1));
+			if (t !== logo.t) {
+				logo.t = t;
+				moving = true;
+			}
+		}
+
+		return moving;
+	}
+
+	function draw() {
+		var side = Math.max(width, height);
+		var base = new DOMMatrix([dpr, 0, 0, dpr, 0, 0]);
+
+		ctx.setTransform(1, 0, 0, 1, 0, 0);
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+		ctx.fillStyle = FILL;
+
+		for (var i = 0; i < logos.length; i++) {
+			var logo = logos[i];
+			var x = (logo.from.x + (logo.to.x - logo.from.x) * logo.t) * width;
+			var y = (logo.from.y + (logo.to.y - logo.from.y) * logo.t) * height;
+			var scale = (logo.size * side) / 500; // viewBox is 500 wide
+
+			ctx.setTransform(base.translate(x, y).scale(scale).multiply(LOGO_MATRIX));
+			ctx.fill(LOGO_PATH);
+		}
+	}
+
+	function frame(now) {
+		// Skip the redraw while every logo is resting
+		if (update(now)) draw();
+		if (!reduceMotion.matches) {
+			requestAnimationFrame(frame);
+		}
+	}
+
+	function init() {
+		canvas = document.getElementById('background');
+		ctx = canvas.getContext('2d');
+
+		resize();
+		createLogos(performance.now());
+		requestAnimationFrame(frame);
+
+		// Scroll past the top overscan, so iOS Safari draws the page under its
+		// bars (see --overscan in style.css). Users can't scroll the page.
+		history.scrollRestoration = 'manual';
+		function scrollPastOverscan() {
+			var overscan = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--overscan')) || 0;
+			window.scrollTo(0, overscan);
+		}
+		scrollPastOverscan();
+		window.addEventListener('load', scrollPastOverscan);
+
+		// Redraw whenever the canvas changes size (window resize, rotation).
+		// Resizing clears the canvas, so always redraw.
+		new ResizeObserver(function () {
+			resize();
+			draw();
+			scrollPastOverscan();
+		}).observe(canvas);
+
+		// Restart the loop if the user turns reduced motion off
+		reduceMotion.addEventListener('change', function () {
+			if (!reduceMotion.matches) requestAnimationFrame(frame);
 		});
 	}
-};
 
-
-/*
- * A rectangle object
- */
-function Rect(x, y, width, height) {
-	this.x = x;
-	this.y = y;
-	this.width = width;
-	this.height = height;
-	this.x2 = x + width;
-	this.y2 = y + height;
-}
+	if (document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', init);
+	} else {
+		init();
+	}
+})();

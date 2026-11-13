@@ -1,180 +1,105 @@
+/* Minimal reset */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 html,
 body,
-div,
-span,
-applet,
-object,
-iframe,
-h1,
-h2,
-h3,
-h4,
-h5,
-h6,
-p,
-blockquote,
-pre,
-a,
-abbr,
-acronym,
-address,
-big,
-cite,
-code,
-del,
-dfn,
-em,
-img,
-ins,
-kbd,
-q,
-s,
-samp,
-small,
-strike,
-strong,
-sub,
-sup,
-tt,
-var,
-b,
-u,
-i,
-center,
-dl,
-dt,
-dd,
-ol,
-ul,
-li,
-fieldset,
-form,
-label,
-legend,
-table,
-caption,
-tbody,
-tfoot,
-thead,
-tr,
-th,
-td,
-article,
-aside,
-canvas,
-details,
-embed,
-figure,
-figcaption,
-footer,
-header,
-hgroup,
-menu,
-nav,
-output,
-ruby,
-section,
-summary,
-time,
-mark,
-audio,
-video {
+h1 {
   margin: 0;
   padding: 0;
-  border: 0;
-  font-size: 100%;
+}
+
+h1 {
   font: inherit;
-  vertical-align: baseline;
 }
 
-article,
-aside,
-details,
-figcaption,
-figure,
-footer,
-header,
-hgroup,
-menu,
-nav,
-section {
-  display: block;
+/* Page */
+html,
+body {
+  overflow: hidden;
+  height: 100%;
 }
 
 body {
-  -webkit-transform: translate3d(0, 0, 0);
-  -webkit-backface-visibility: hidden;
-  -webkit-perspective: 1000;
+  background: #4a4a4a;
   line-height: 1;
+  /* No bounce, no scroll */
+  overscroll-behavior: none;
+  touch-action: none;
 }
 
-ol,
-ul {
-  list-style: none;
-}
-
-blockquote,
-q {
-  quotes: none;
-}
-
-blockquote:before,
-blockquote:after,
-q:before,
-q:after {
-  content: '';
-  content: none;
-}
-
-table {
-  border-collapse: collapse;
-  border-spacing: 0;
-}
-
-html {
-  overflow: hidden;
-  height: 100%;
-}
-
-body {
-  overflow: hidden;
-  width: 100%;
-  height: 100%;
+/*
+ * Running under the browser bars on iOS Safari (26+):
+ * Safari only draws page content under its status bar and toolbar when the
+ * document actually has content there, i.e. when it is scrolled. So the
+ * page is made taller than the screen by --overscan at the top and bottom,
+ * and main.js scrolls down by --overscan. User scrolling stays disabled.
+ */
+:root {
+  --overscan: 100px;
 }
 
 #content {
-  position: relative;
+  position: absolute;
+  top: 0;
+  left: 0;
   overflow: hidden;
+  width: 100%;
+  height: calc(100vh + 2 * var(--overscan));
+  height: calc(100lvh + 2 * var(--overscan));
+}
+
+#background {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
 }
 
-@media only screen and (max-device-width: 840px) {
-  #sidebar {
-    display: none;
-  }
+#mainLogo {
+  z-index: 100;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 50vmin;
+  height: 50vmin;
+  transform: translate(-50%, -50%);
 }
 
+#mainLogo svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Vertical site title, top right */
 #sidebar {
   z-index: 200;
   position: absolute;
-  top: 5px;
-  right: 10px;
+  /* Top of the visible area (see --overscan); right inset clears the notch in landscape */
+  top: calc(var(--overscan) + 5px);
+  right: calc(10px + env(safe-area-inset-right));
 }
 
+/* Rotated around its top-left corner, so it hangs left of #sidebar's anchor */
 #sidebar h1 {
   position: absolute;
   top: 10px;
-  transform-origin: 0% 0%;
-  -ms-transform-origin: 0% 0%;
-  -webkit-transform-origin: 0% 0%;
+  transform-origin: 0 0;
   transform: rotate(90deg);
-  -ms-transform: rotate(90deg);
-  -webkit-transform: rotate(90deg);
+  white-space: nowrap;
   font-family: "Myriad Pro", Helvetica, Arial, sans-serif;
   font-size: 30px;
   text-transform: lowercase;
-  color: #FFF;
+  color: #fff;
 }
 
-/*# sourceMappingURL=style.css.map */
+/* Smaller title on phones */
+@media (max-width: 840px) {
+  #sidebar h1 {
+    font-size: 20px;
+  }
+}
